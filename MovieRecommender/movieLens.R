@@ -643,37 +643,49 @@ kable(resultsMean) %>%
                 full_width = TRUE)
 
 # Results section ---------------------------------------------------------
-# We're not going to use the best model on the final data
-# The model that worked the best was the Movie + User + Independent Genre one
+# The model that worked the best was the Regularized Movie + User + year delta Genre one
 # so that's what I'm going to run it on the final_holdout_test data
-# --------------- Movie + User + Independent Genre Effect model------------
-# Y = u + b_i + b_u + b_g  + epsilon
-titleFit <- edx %>%
-  group_by(movieId) %>%
-  summarize(b_i = mean(rating - mu))
+# --------------- Movie + User + year delta Genre Effect model------------
+# Y = u + b_i + b_u + b_y  + epsilon
+# Regularized parameter
+lambdas <- seq(0, 10, 0.5)
 
-userFit <- edx %>%
-  left_join(titleFit, by = "movieId") %>%
-  group_by(userId) %>%
-  summarize(b_u = mean(rating - mu - b_i))
+# Grid search to tune the regularized parameter lambda
+rmses <- sapply(lambdas, function(l) {
+  mu <- mean(edx$rating)
+  
+  b_i <- edx %>%
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu) / (n() + l))
+  
+  b_u <- edx %>%
+    left_join(b_i, by = "movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu) / (n() + l))
+  
+  b_y <- edx %>%
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    group_by(yearDelta) %>%
+    summarize(b_y = sum(rating - mu - b_i - b_u) / (n() + l))
+  
+  predicted_ratings <- final_holdout_test %>%
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    left_join(b_y, by = "yearDelta") %>%
+    mutate(pred = mu + b_i + b_u + b_y) %>%
+    pull(pred)
+  
+  predicted_ratings <- clamp(predicted_ratings, 0.5, 5)
+  
+  return(RMSE(predicted_ratings, final_holdout_test$rating))
+})
 
-genreFit <- edx %>%
-  left_join(titleFit, by = "movieId") %>%
-  left_join(userFit, by = "userId") %>%
-  group_by(genres) %>%
-  summarize(b_g = mean(rating - mu - b_i - b_u))
+plot_rmses <- qplot(lambdas, rmses)
+lambda <- lambdas[which.min(rmses)]
 
-pred <- final_holdout_test %>%
-  left_join(titleFit, by = "movieId") %>%
-  left_join(userFit, by = "userId") %>%
-  left_join(genreAvg, by = "genres") %>%
-  mutate(y = mu + b_i + b_u + b_g) %>%
-  pull(y)
-
-pred <- clamp(pred, 0.5, 5)
-
-finalRMSE <- RMSE(pred, final_holdout_test$rating)
-resultsMean <- tibble(Method = "Movie + User + Independent Genre Effects", RMSE = finalRMSE)
+finalRMSE <- min(rmses)
+resultsMean <- tibble(Method = "Movie + User + Year delta Effects", RMSE = finalRMSE)
 kable(resultsMean) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                 position = "center",

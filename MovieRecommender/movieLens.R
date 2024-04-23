@@ -219,23 +219,23 @@ meanRatingPerMonth <-  edx %>%
                     ggplot(aes(ratingMonth, meanRating)) +
                     geom_col(col="blue") + 
                     labs(
-                      title = "Mean rating by month", 
+                      title = "Mean by month", 
                       x = "Rating month",
                       y = "Rating mean"
                     ) +
                     theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 
 meanRatingPerYear <-  edx %>%
-  group_by(ratingYear) %>%
-  summarize(meanRating = mean(rating)) %>%
-  ggplot(aes(ratingYear, meanRating)) +
-  geom_col(col="blue") + 
-  labs(
-    title = "Mean rating by year", 
-    x = "Rating year",
-    y = "Rating mean"
-  ) +
-  theme(axis.text.x = element_text(angle=90, hjust=1))
+                    group_by(ratingYear) %>%
+                    summarize(meanRating = mean(rating)) %>%
+                    ggplot(aes(ratingYear, meanRating)) +
+                    geom_col(col="blue") + 
+                    labs(
+                      title = "Mean by year", 
+                      x = "Rating year",
+                      y = "Rating mean"
+                    ) +
+                    theme(axis.text.x = element_text(angle=90, hjust=1))
 
 meanRatingsvsDelta <- edx %>%
                     group_by(yearDelta) %>%
@@ -243,8 +243,8 @@ meanRatingsvsDelta <- edx %>%
                     ggplot(aes(yearDelta, deltamean)) +
                     geom_col(col="blue") + 
                     labs(
-                      title = "Mean rating by (Rating year - Release year)", 
-                      x = "Rating year - Release year",
+                      title = "Mean by delta year", 
+                      x = "Rating - Release year",
                       y = "Rating mean"
                     ) +
                     theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
@@ -283,7 +283,7 @@ medianRatingsvsDelta <- edx %>%
                           ggplot(aes(yearDelta, deltaMedian)) +
                           geom_col(col="blue") + 
                           labs(
-                            title = "Median rating by (Rating year - Release year)", 
+                            title = "Median rating by year delta", 
                             x = "Rating year - Release year",
                             y = "Rating median"
                           ) +
@@ -364,7 +364,7 @@ medianPerUser <- edx %>%
 
 grid.arrange(meanPerTitle, medianPerTitle, meanPerUser, medianPerUser, nrow = 2, ncol = 2)
 
-#Top rated movies
+#Top rated movies for just getting a sense of the data
 topMoviesFrequency <- edx %>%
   group_by(title) %>%
   summarise(count = n()) %>%
@@ -594,7 +594,8 @@ kable(resultsMean) %>%
 # Regularized parameter
 lambdas <- seq(0, 10, 0.5)
 
-# Grid search to tune the regularized parameter lambda
+# Search to tune the regularized parameter lambda
+#Also returns an array of the rmse's using the lambdas above
 rmses <- sapply(lambdas, function(l) {
   mu <- mean(trainEdx$rating)
   
@@ -625,9 +626,11 @@ rmses <- sapply(lambdas, function(l) {
   return(RMSE(predicted_ratings, testEdx$rating))
 })
 
+#Plot the lambdas so I can visually see what is going on
 plot_rmses <- qplot(lambdas, rmses)
 lambda <- lambdas[which.min(rmses)]
 
+#Create the final table entry
 resultsMean <- bind_rows(
   resultsMean,
   tibble(
@@ -684,6 +687,7 @@ rmses <- sapply(lambdas, function(l) {
 plot_rmses <- qplot(lambdas, rmses)
 lambda <- lambdas[which.min(rmses)]
 
+#List the final entry in its own table so it stands out
 finalRMSE <- min(rmses)
 resultsMean <- tibble(Method = "Movie + User + Year delta Effects", RMSE = finalRMSE)
 kable(resultsMean) %>%

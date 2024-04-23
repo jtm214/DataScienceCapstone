@@ -8,4 +8,3 @@ This repo contains the three files necessary for completing the project, a .R fi
 
 ## Independent projects
 TBD
-This is the base of the Caretaker5 project.  Consult README files further up the tree for more info

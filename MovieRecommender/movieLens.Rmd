@@ -5,11 +5,12 @@ date: "April 2024"
 output: 
     pdf_document:
         toc: true
+        number_sections: true
 ---
+\newpage
+# Introduction
 
-# Introduction section
-
-The MovieLens dataset is a database with over 20 million ratings for over 27,000 movies by almost 140,000 users which can be viewed here: <https://grouplens.org/datasets/movielens/>. A subset of this database will be used to create a movie recommendation system for the Harvardx Data Science capstone project. The subset of the data is provided by the course and can be viewed at the following location: <https://grouplens.org/datasets/movielens/10m/>. The data used for this project has 10 million ratings from 10,000 movies by 72,000 users and was released in January of 2009. The data set includes a userID, movieID, movie title that includes the year of the release of the movie as well as a unix style timestamp (seconds since January 1, 1970) along with the genre of the movie.
+The MovieLens dataset is a database with over 20 million ratings for over 27,000 movies by almost 140,000 users which can be viewed here: <https://grouplens.org/datasets/movielens/>. A subset of this database will be used to create a movie recommendation system for the Harvardx Data Science capstone project. The subset of the dataset is provided by the course and can be viewed at the following location: <https://grouplens.org/datasets/movielens/10m/>. The data used for this project has 10 million ratings from 10,000 movies by 72,000 users and was released in January of 2009. The data set includes a userID, movieID, movie title that includes the year of the release of the movie as well as a unix style timestamp (seconds since January 1, 1970) along with the genre of the movie.
 
 The goal of this project is to predict movie ratings using the techniques discusses in the series of classes that are prerequisites for the capstone course. Code provided by the course created training and validation sets that are to be used for the final accuracy measurement of the generated model. The validation or final_holdout_test set is 10% of the original data and is not used in the construction of the model. As per the instructions the the final_holdout_test data is not to be used during the development of the model and used just for the final validation test so the edx data set was again broken down into a test and validation sets where the validation set is 10% of the edx data. This additional validation set is not used during the development of the models but is used to verify the intermediate steps.
 
@@ -75,7 +76,7 @@ RMSE <- function(verificationRations = NULL, predictedRatings = NULL) {
 
 ## Loading the data
 
-The initial data loading, data wrangling, and breaking the data into test and validation sets was provided by the course. Here's the provided code a reference.
+The initial data loading, data wrangling, and breaking the data into test and validation sets was provided by the course. Here's the provided code for reference.
 
 ```{r Create test and validation sets, echo=FALSE, message=FALSE, warning=FALSE}
 # MovieLens 10M dataset:
@@ -136,7 +137,7 @@ rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 ## Data Exploration
 
-In an effort to get a better sense of the data and important features we're going to take some basic statistics and generate some plots of the data that may help provide some insight of what is techniques are best for this data. Here's a snip of the data set used throughout to get a general idea of the data format and important information.
+In an effort to get a better sense of the data and important features we're going to take some basic statistics and generate some plots of the data that may help provide some insight into what techniques are best for this data. Here's a snip of the data set used throughout to get a general idea of the data format and important information.
 
 ```{r Initial data exploration to help guide the analysis, message=FALSE, warning=FALSE}
 #Here's a glimpse of the data set
@@ -162,24 +163,24 @@ genreStats = statFunc(edx, "genres", TRUE)
 
 colnames(totalStats) <- c("Ratings", "Avg", "Median", "Std. Dev", "High", "Low")
 kable(totalStats) %>%
-kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+kable_material(c("striped", "hover", "condensed", "responsive"),
               position = "center",
               font_size = 12)
 ```
 
-Next we're going to look at the total counting stats for the edx dataset:
+Now we're going to look at the total counting stats for the edx dataset:
 
 ```{r Basic counting statistics of edx data set, message=FALSE, warning=FALSE}
 tab <- cbind(uniqueUsers,uniqueMovies,length(uniqueGenres), length(unique(edx$genres)))
 rownames(tab) <- 'Data Set'
 colnames(tab) <- c('Users', 'Movies', 'Genres', 'Total Genres');
 kable(tab) %>%
-kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+kable_material(c("striped", "hover", "condensed", "responsive"),
               position = "center",
               font_size = 12)
 ```
 
-Now we're going to go into a little more depth on the data. First, the timestamp of the rating information is going to grabbed from the data sets along with the year the movie was release. The time information is also going to parsed out of the final_holdout_test data set so that it can be used in the final analysis if needed.
+Next we're going to go into a little more depth on the data. First, the timestamp of the rating information is going to grabbed from the datasets along with the year the movie was released. The time information is also going to be parsed out of the final_holdout_test data set so that it can be used in the final analysis if needed.
 
 ```{r Getting the time information of the datasets, message=FALSE, warning=FALSE}
 
@@ -191,7 +192,8 @@ edx$date <- as.POSIXct(edx$timestamp, origin="1970-01-01");
 edx$ratingYear = as.numeric(format(edx$date, "%Y"));
 edx$ratingMonth = as.numeric(format(edx$date, "%m"));
 
-# Get the year of the movie. Each movie title seemed to have the release year appended to the end
+# Get the year of the movie. Each movie title seemed to have the release year 
+# appended to the end
 # Get the parenthesis and what is inside
 k <- str_extract_all(edx$title, "\\([^()]+\\)$");
 # Remove parenthesis
@@ -202,11 +204,13 @@ k <- as.data.frame(matrix(as.numeric(gsub(")","", k))));
 edx$movieYear = k$V1;
 edx$yearDelta = as.numeric(edx$ratingYear)-as.numeric(edx$movieYear);
 
-#Separate the genres, this will make multiple movie entries for titles that have multiple genres listed
+#Separate the genres, this will make multiple movie entries for titles that have multiple 
+#genres listed
 edx <- edx %>% separate_rows(genres,sep = "\\|") %>% mutate(value=1)
 genresIndependent <- edx %>% group_by(genres) %>% summarize(n=n())
 
-#Do the same thing above for the final_holdout_test data. Should make this a function but that's for next time.
+#Do the same thing above for the final_holdout_test data. Should make this a function but 
+#that's for next time.
 #There seems to be more information available by parsing out the timestamp
 #Extract the timestamp and convert it to a human readable date
 final_holdout_test$date <- as.POSIXct(final_holdout_test$timestamp, origin="1970-01-01");
@@ -215,7 +219,8 @@ final_holdout_test$date <- as.POSIXct(final_holdout_test$timestamp, origin="1970
 final_holdout_test$ratingYear = as.numeric(format(final_holdout_test$date, "%Y"));
 final_holdout_test$ratingMonth = as.numeric(format(final_holdout_test$date, "%m"));
 
-# Get the year of the movie. Each movie title seemed to have the release year appended to the end
+# Get the year of the movie. Each movie title seemed to have the release year appended to 
+# the end
 # Get the parenthesis and what is inside
 k <- str_extract_all(final_holdout_test$title, "\\([^()]+\\)$");
 # Remove parenthesis
@@ -224,11 +229,15 @@ k <- substring(k, 2, nchar(k)-1);
 # be a new column in the data frame
 k <- as.data.frame(matrix(as.numeric(gsub(")","", k))));
 final_holdout_test$movieYear = k$V1;
-final_holdout_test$yearDelta = as.numeric(final_holdout_test$ratingYear)-as.numeric(final_holdout_test$movieYear);
+final_holdout_test$yearDelta = as.numeric(final_holdout_test$ratingYear)-
+                                      as.numeric(final_holdout_test$movieYear);
 
-#Separate the genres, this will make multiple movie entries for titles that have multiple genres listed
+#Separate the genres, this will make multiple movie entries for titles that have multiple
+#genres listed
 #Separate the genres for the final test data as it will be needed later ;) ;)
-final_holdout_test <- final_holdout_test %>% separate_rows(genres,sep = "\\|") %>% mutate(value=1)
+final_holdout_test <- final_holdout_test %>% 
+                      separate_rows(genres,sep = "\\|") %>% 
+                      mutate(value=1)
 ```
 
 Now the number of ratings are going to be plotted against the movie IDs, user IDs, and genre categories to see if there's useful information there.
@@ -238,29 +247,35 @@ Now the number of ratings are going to be plotted against the movie IDs, user ID
 #are important for the prediction process
 
 #Raw data plots before any real analysis
-ratingsPerTitle <- ggplot(movieStats, aes(`inData[[group]]`, ratings/1000))+geom_col(col="blue") + 
+ratingsPerTitle <- ggplot(movieStats, aes(`inData[[group]]`, ratings/1000))+
+                    geom_col(col="blue") + 
                     labs(
                       title = "Ratings per movie",
                       x = "Movie ID",
                       y = "Ratings/1000"
                     ) +
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
-ratingsPerUser <- ggplot(userIdStats, aes(`inData[[group]]`, ratings/1000))+geom_col(col="blue") + 
+ratingsPerUser <- ggplot(userIdStats, aes(`inData[[group]]`, ratings/1000))+
+                    geom_col(col="blue") + 
                     labs(
                       title = "Ratings per user",
                       x = "User ID",
                       y = "Ratings/1000"
                     ) +
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
-ratingsPerGenre <- ggplot(genreStats, aes(1:length(genreStats[[1]]), ratings/1000))+geom_col(col="blue") + 
+ratingsPerGenre <- ggplot(genreStats, aes(1:length(genreStats[[1]]), ratings/1000))+
+                    geom_col(col="blue") + 
                     labs(
                       title = "Ratings per genre",
                       x = "Genre Category",
                       y = "Ratings/1000"
                     ) +
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
 grid.arrange(ratingsPerTitle, ratingsPerUser, ratingsPerGenre, ncol = 3);
 ```
@@ -282,7 +297,8 @@ meanRatingPerMonth <-  edx %>%
                       x = "Rating month",
                       y = "Rating mean"
                     ) +
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
 meanRatingPerYear <-  edx %>%
   group_by(ratingYear) %>%
@@ -306,13 +322,14 @@ meanRatingsvsDelta <- edx %>%
                       x = "Rating year - Release year",
                       y = "Rating mean"
                     ) +
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
 
 grid.arrange(meanRatingPerMonth, meanRatingPerYear, meanRatingsvsDelta, ncol = 3);
 ```
 
-The mean information was somewhat interesting but I'm not sure it benefits us all that much. The movie ratings by month showed slightly higher ratings during the winter months which may be related to the awards season. The gap really isn't that big though so I don't think this warrants additional analysis, the year of the rating also has some highlights like the early to mid 90's had a disproportionately higher ratings but in looking at the movie list there's also a whole lot big hits. It may be coincidence but we'll look into movie year effects in the analysis section. The delta between the rating year and the movie release year shows that if the movie is rate within the first few years, the rating is generally lower, may have to looking into this effect as well.
+The mean information was somewhat interesting but I'm not sure it benefits us all that much. The movie ratings by month showed slightly higher ratings during the winter months which may be related to the awards season. The gap really isn't that big though so I don't think this warrants additional analysis, the year of the rating also has some highlights like the early to mid 90's had a disproportionately higher ratings but in looking at the movie list there's also a whole lot big hits. It may be coincidence but we'll look into movie year effects in the analysis section. The delta between the rating year and the movie release year shows that if the movie is rated within the first few years of release, the rating is generally lower, may have to looking into this effect as well.
 
 Next we're going to do a very similar analysis using the median ratings instead of the means.
 
@@ -329,7 +346,8 @@ medianRatingPerMonth <- edx %>%
                             x = "Rating month",
                             y = "Rating median"
                           ) +
-                          theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                          theme(axis.text.x = element_text(angle=90, hjust=1), 
+                                plot.title = element_text(hjust = 0.5))
 
 medianRatingPerYear <-edx %>%
                           group_by(ratingYear) %>%
@@ -341,7 +359,8 @@ medianRatingPerYear <-edx %>%
                             x = "Rating year",
                             y = "Rating median"
                           ) +
-                          theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                          theme(axis.text.x = element_text(angle=90, hjust=1), 
+                                plot.title = element_text(hjust = 0.5))
 
 medianRatingsvsDelta <- edx %>%
                           group_by(yearDelta) %>%
@@ -353,12 +372,13 @@ medianRatingsvsDelta <- edx %>%
                             x = "Rating - Release year",
                             y = "Rating median"
                           ) +
-                          theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                          theme(axis.text.x = element_text(angle=90, hjust=1), 
+                                plot.title = element_text(hjust = 0.5))
 
 grid.arrange(medianRatingPerMonth, medianRatingPerYear, medianRatingsvsDelta, ncol = 3);
 ```
 
-The median data really didn't show much additional information than what was discovered during the mean plots so this as far as we'll go with the median information.
+The median data really didn't show much additional information than what was discovered during the mean plots so this is as far as we'll go with the median information.
 
 Next, the distribution data will be plotted on a logarithmic scale to see if there's any helpful insight. First we'll plot the total number of users and titles vs. the distribution of ratings.
 
@@ -373,17 +393,19 @@ ratingsPerUser <- userIdStats %>%
                          x = "Log Number of Ratings",
                          y = "Number of Users"
                     )+
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
 ratingsPerMovie <- movieStats %>%
-  ggplot(aes(x=ratings)) +
-  geom_histogram(bins=50, fill="blue") +
-  scale_x_log10() +
-  labs(title = "Log Distribution of Number of Ratings per Title",
-       x = "Log Number of Ratings",
-       y = "Number of Titles"
-  )+
-  theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    ggplot(aes(x=ratings)) +
+                    geom_histogram(bins=50, fill="blue") +
+                    scale_x_log10() +
+                    labs(title = "Log Distribution of Number of Ratings per Title",
+                         x = "Log Number of Ratings",
+                         y = "Number of Titles"
+                    )+
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 
 grid.arrange(ratingsPerMovie, ratingsPerUser, nrow = 2);
 ```
@@ -401,7 +423,8 @@ meanPerTitle <- edx %>%
                        x = "Mean Rating",
                        y = "Frequency"
                   )+
-                  theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                  theme(axis.text.x = element_text(angle=90, hjust=1), 
+                        plot.title = element_text(hjust = 0.5))
 
 medianPerTitle <- edx %>%
                     group_by(movieId) %>%
@@ -412,7 +435,8 @@ medianPerTitle <- edx %>%
                          x = "Median Rating",
                          y = "Frequency"
                     )+
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 # Mean rating per user 
 meanPerUser <- edx %>%
                 group_by(userId) %>%
@@ -423,7 +447,8 @@ meanPerUser <- edx %>%
                      x = "Mean Rating",
                      y = "Frequency"
                 )+
-                theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                theme(axis.text.x = element_text(angle=90, hjust=1), 
+                      plot.title = element_text(hjust = 0.5))
 
 medianPerUser <- edx %>%
                   group_by(userId) %>%
@@ -434,12 +459,13 @@ medianPerUser <- edx %>%
                        x = "Median Rating",
                        y = "Frequency"
                   )+
-                  theme(axis.text.x = element_text(angle=90, hjust=1),plot.title = element_text(hjust = 0.5))
+                  theme(axis.text.x = element_text(angle=90, hjust=1),
+                        plot.title = element_text(hjust = 0.5))
 
 grid.arrange(meanPerTitle, medianPerTitle, meanPerUser, medianPerUser, nrow = 2, ncol = 2)
 ```
 
-Both the mean and median distributions show similar effects so we'll stick to using the mean. This also somewhat confirms our initial findings of the mean being around 3.5 for both movie titles and users. This is kind of interesting that both means are vary similar though the kurtosis on the user distribution is lower and the skewness of the title distribution is more left sided. Not sure if we'll be able to use that in this analysis though that could be something that's looked at in the future.
+Both the mean and median distributions show similar effects so we'll stick to using the mean. This also somewhat confirms our initial findings of the mean being around 3.5 for both movie titles and users. This is kind of interesting that both means are very similar though the kurtosis on the user distribution is lower and the skewness of the title distribution is more left sided. Not sure if we'll be able to use that in this analysis though that could be something that's looked at in the future.
 
 We'll wrap up the data exploration next by plotting the top 20 movies according to the number of ratings. First it will be shown in a distribution plot and then just in a table.
 
@@ -464,7 +490,7 @@ edx %>%
   arrange(desc(count)) %>%
   head(n=20) %>%
   kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 
@@ -472,15 +498,15 @@ edx %>%
 
 The distribution and plot really only show us that some movies are rated way more frequently than others and the ones that are more frequently rated tend to be box office hits. On to the analysis.
 
-# Analysis section
+# Analysis
 
 ## Create development test set
 
 As per the instructions of the course, the final_holdout_test data set should not be used during the model development so here we're creating a new subset of data to develop the model independent on the final_holdout_test data.
 
 ```{r Separating data for the initial analysis, message=FALSE, warning=FALSE}
-# The project instructions say to not use the final holdout data until the final model so here we're going
-# to make a training and test data set from the edx data
+# The project instructions say to not use the final holdout data until the final 
+# model so here we're going to make a training and test data set from the edx data
 testIndex <-createDataPartition(y = edx$rating, times = 1, p = 0.1, list = F)
 trainEdx <-edx[-testIndex,]
 tempEdx <-edx[testIndex,]
@@ -502,9 +528,10 @@ In total there are `r length(unique(edx$userId))` unique users providing ratings
 
 With respect to genres it can be shown that some genres have a lot more ratings than others and the mean rating is different between genres. As shown in the quiz to start this project the most popular rated genre types are Drama and Comedy. Drama and film-noir are some of the higher rated genre types, while horror is the worst rated.
 
-As described above, the large nature of the dataset makes modeling the data using a function like *lm* to resource intensive for this application. Working around this limitation with the using the least square estimates loss function manually keeps us in the ballpark. The loss function can be found in the helper function is described by the equation: $RMSE=\sqrt{\frac{1}{N}\sum_{u,i}(\hat{y}_{u,i}-y_{u,i})^2}$
+As described above, the large nature of the dataset makes modeling the data using a function like *lm* too resource intensive for this application. We'll be working around this limitation by using the least square estimates loss function manually which keeps us in the ballpark. The loss function can be found in the helper function is described by the equation:  
+$RMSE=\sqrt{\frac{1}{N}\sum_{u,i}(\hat{y}_{u,i}-y_{u,i})^2}$
 
-Also, remember that we're using a subset of the data from the edx set for development of the model but will be using the whole set in the validation at the end.
+Also, remember that we're using a subset of the data from the edx set for development of the model but will be using the whole set in the validation at the end so the RMSE's found during the analysis will not match those of the same models taken with the final test set.
 
 ## Initial model - Simple average
 
@@ -522,7 +549,7 @@ meanRMSE <- RMSE(testEdx$rating, mu)
 
 resultsMean <- tibble(Method = "Mean", RMSE = meanRMSE)
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 
@@ -545,7 +572,8 @@ geom_histogram(bins=50, fill="blue") +
                          x = "b_i",
                          y = "Number of Movies"
                     )+
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 ```
 
 The updated model including the movie bias will have the following equation:
@@ -575,7 +603,7 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
@@ -598,7 +626,8 @@ geom_histogram(bins=50, fill="blue") +
                          x = "b_u",
                          y = "Number of movies"
                     )+
-                    theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+                    theme(axis.text.x = element_text(angle=90, hjust=1), 
+                          plot.title = element_text(hjust = 0.5))
 ```
 
 The updated model including the movie bias will have the following equation:
@@ -630,16 +659,16 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
 
-The model improved the RMSE by a small amount but is not quite there yet. We're going to try a
+The model improved the RMSE by a small amount but is not quite there yet. We're going to try adding time information to the models next.
 
 ## Movie + user + year delta effect model
 
-Now we're going to add the delta between the year the movie was released and the year that the movie was rated effects. The assumption is that the longer the delta is the higher the rating will be, kind of a nastalgia effect.
+Now we're going to add the delta between the year the movie was released and the year that the movie was rated effects. The assumption is that the longer the delta is the higher the rating will be, kind of a nostalgia effect.
 
 The updated model including the movie bias will have the following equation:
 
@@ -671,12 +700,12 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
 
-Use the delta between the year of the movie release and the year of rating didn't add much benefit, we're going to use it but it just made an incremental benefit.
+Use the delta between the year of the movie release and the year of rating added a slight benefit, we're going to use it but it just made an incremental improvement
 
 ## Movie + user + year release effect model
 
@@ -712,7 +741,7 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
@@ -728,7 +757,8 @@ The updated model including the movie bias will have the following equation:
 $Y_{u,i} = \mu + b_{i} + b_{u} + b_{g} + \epsilon_{u,i}$
 
 ```{r Movie + User + Genre release effect model, message=FALSE, warning=FALSE}
-# Separate the genres out so a movie can be listed by individual genre and not the combined list
+# Separate the genres out so a movie can be listed by individual genre and not the 
+# combined list
 genreAvg <- trainEdx %>%
   left_join(titleFit, by = "movieId") %>%
   left_join(userFit, by = "userId") %>%
@@ -754,12 +784,12 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
 
-Uses the genre's separated independently didn't make a significant difference, in fact it actually made things worse a bit.
+Uses the genre's separated independently didn't make a significant difference, in fact it actually made things a bit worse.
 
 ## Regularized movie + user + year delta effects model
 
@@ -819,18 +849,18 @@ resultsMean <- bind_rows(
 )
 
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
 
-The regularization based on the movie effects didn't really help much but there was a slight improvement.
+The regularization based on the movie effects didn't really help much but there was a slight improvement.  A few of the model iterations seem to put us below the targetted RMSE so we'll move on to the results section.
 
-# Results section
+# Results
 
-To predict movie ratings we built several models models that considered the effects of movies, users, independent genres and time features. The best model considered movies, users, and year delta effects Using the movie release year and the genres independently actually made things slightly worse and will be left out of the final model. The movie effect decreased the RMSE the most, suggesting that the movie in itself is of most important feature of those tested.
+To predict movie ratings we built several models models that considered the effects of movies, users, independent genres and time features. The best model considered movies, users, and year delta effects. Using the movie release year and the genres independently actually made things slightly worse and will be left out of the final model. The movie effect decreased the RMSE the most, suggesting that the movie in itself is of most important feature of those tested.
 
-Now that we've identified the best model of the bunch on the subset of data we'll run that algorithm on the edx data set and compare against the final_holdout_test data.
+Now that we've identified the best model of the bunch on the subset of data created earlier, we'll run that algorithm on the edx data set and compare against the final_holdout_test data.
 
 ```{r Final holdout test , message=FALSE, warning=FALSE}
 # Regularized parameter
@@ -873,14 +903,14 @@ lambda <- lambdas[which.min(rmses)]
 finalRMSE <- min(rmses)
 resultsMean <- tibble(Method = "Movie + User + Year delta Effects", RMSE = finalRMSE)
 kable(resultsMean) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  kable_material(c("striped", "hover", "condensed", "responsive"),
                 position = "center",
                 font_size = 12)
 ```
 
-# Conclusion section
+# Conclusion
 
-The goal of this project was to predict movie ratings from a subset of the movie lens data base using features of the dataset such as movie title, ratings, users, genres, and timestamp information. The data was divided into train and validation to avoid over fitting. Since the dataset was fairly large some modeling techniques were avoided due to limitations of time and memory allocation.This left solving the problem using a least squares estimate manually using the above features and some basic regularization. The best-fitted model achieved an RMSE of `r finalRMSE`, which being less than 0.86490 achieved the maximum point allowance according to the grading rubric provided in the course description. Having more information on the users and movie details may allow for improving the model. Also, using some of the more advanced modeling techniques such as distributed random forest, nearest neighbor, or ensemble approach would improve the results but the minimum has been met and time is running short so the model improvements will have to wait for some other assignment.
+The goal of this project was to predict movie ratings from a subset of the movie lens data base using features of the dataset such as movie title, ratings, users, genres, and timestamp information. The data was divided into train and validation to avoid over fitting. Since the dataset was fairly large some modeling techniques were avoided due to limitations of time and memory allocation.  This left solving the problem using a least squares estimate manually using the above features and some basic regularization. The best-fitted model achieved an RMSE of `r finalRMSE`, which being less than 0.86490 achieved the maximum point allowance according to the grading rubric provided in the course description. Having more information on the users and movie details may allow for improving the model. Also, using some of the more advanced modeling techniques such as distributed random forest, nearest neighbor, or ensemble approach would improve the results but the minimum has been met and time is running short so the model improvements will have to wait for some other assignment.
 
 # References
 

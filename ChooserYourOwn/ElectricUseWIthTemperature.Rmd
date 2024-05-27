@@ -1,0 +1,106 @@
+---
+title: "Spain - Electricity Use Related to Temperature"
+author: "Justin McQuown"
+date: "May 2024"
+output: 
+    html_document:
+          toc: true
+          number_sections: true
+---
+```{r analysis, include=FALSE}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(kableExtra)) install.packages(("kableExtra"))
+if(!require(tidyr)) install.packages("tidyr");
+if(!require(ggplot2)) install.packages("ggplot2");
+if(!require(gridExtra)) install.packages("gridExtra")
+
+library(tidyverse)
+library(kableExtra)
+library(tidyr)
+library(ggplot2)
+library(gridExtra)
+load("chooseYourOwnWorkspace.Rdata")
+```
+\newpage
+# Introduction
+For the choose your own project, I chose to try to predict the daily energy use in MWh based on the daily temperature.  The
+energy use data set came from kaggle and can be found here:  <https://www.kaggle.com/datasets/pythonafroz/price-of-electricity-and-the-renewable-energy?resource=download>. While the license info can
+be found here: <https://creativecommons.org/licenses/by-nc-sa/4.0/>.  The energy data was was taken in Spain for 2 year period starting 
+on November 1, 2020 and ending on October 31, 2022.  The data was collected multiple times an hour giving a fairly decent size dataset of over 100K entries.  Temperature data for this time period wasn't available on kaggle so it was gathered from NOAA.  The NOAA data was not sampled as frequently and was taken from multiple stations across the country.  It initially contained over 260K entries but this was trimmed down several times throughout the analysis.  Since both kaggle and NOAA require accounts to download the data, the data sets are provided in the github repository.  They are named energyData.csv for the energy data from kaggle and tempData.csv for the temperature data from NOAA.
+
+With the goal of this project being able to predict the energy use based on the daily temperature a validation set of data named testData was generated and is 10% of the original data.  The testData was not used to create the various models but was used in the final validation of the algorithms.  Several techniques of models were used in an attempt to make the predictions as well as some data engineering to clean the data.   
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Data Engineering
+The energy contained a lot of information including energy total, reference and free market price, reference and market share, and renewable generation source.  For this application the price, share, and source were not relevant so they were removed after the initial important leaving just the total energy.  The temperature data consisted of the daily high, low, and average temperatures along with the station it was collected, the coordinates of the station and the elevation of the station.  In an effort to simplify the number of data points I filtered out all the stations except the ones near Madrid since it was a fairly centralized location within the country.  There were a number of stations located in and around Madrid and the daily temperature data was averaged for these locations.  Since the energy data was sampled every 4 hours and the temperature data was collected once a day, the energy data was summed to give a single measurement for the day.
+## Data Exploration
+In an effort to get a better sense of the data and important features some basic statistics were taken and some plots were generated that may help provide some insight into what techniques are best for this data. Here's a snip of the data set used throughout to get a general idea of the data format and important information.
+
+```{r Initial data exploration to help guide the analysis, message=FALSE, warning=FALSE, echo=FALSE}
+#Here's a glimpse of the data set
+trainData %>% as_tibble()
+```
+Next some basic statistics of the data were calculated:
+```{r basic stats, message=FALSE, warning=FALSE, echo=FALSE}
+kable(tab) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                position = "center",
+                font_size = 12,
+                full_width = TRUE)
+```
+
+```{r plots of the data, message=FALSE, warning=FALSE}
+grid.arrange(temperatureDataPlot, energyDataPlot, nrow = 2);
+grid.arrange(temperatureDataPlotSmooth, energyDataPlotSmooth, nrow = 2);
+temperatureEnergyPlotSmooth
+temperaturevsEnergy
+temperaturevsEnergyOrdered
+grid.arrange(tMaxCor, tMinCor, nrow = 2); 
+grid.arrange(tAveCor, deltaCor, nrow = 2);
+grid.arrange(tMaxHist, tMinHist, eAVEHist)
+```
+
+# Analysis
+All of the algorithms tested were executed with the caret train function and executed using the daily energy use as the outcome and the daily temperature max/min as the predictors.  The models were run with other predictors such as the daily average temperature, the delta between the max and min temperatures, and the max/min temperatures individually but all of these versions of the model performed worse than the combined version.  
+## Analysis Precursor
+The metric for determine which algorithm performed best was the RMSE but as you'll see later in the report other metrics were used as a comparison, partly of out of my partly out of my personal interest but also because the data was continuous with a large variation and the errors in and of themselves didn't seem all the enlightening at first glance.
+## Initial Model
+The initial model was a simple linear
+## Final Model
+
+```{r knn plots, message=FALSE, warning=FALSE, echo=FALSE}
+plot(knnFit$results$RMSE)
+```
+
+# Results
+The Analysis wasn't as in depth as originally intended due to the limitations I put on the data early on in the process so to provide some reasonable insight into the project I tried multiple models and reviewed multiple metrics for determining the accuracy of the algorithms.  You'll notice that the following results table include the calculated Bias, RMSE, MSE, MAE, and MAPE.  MAPE was largely included so that a simple percent error was included.  The simple percent error was much easier to quickly look at the measurements at determine which one performed the best though I realize that MAPE has it's drawbacks.  Though by every measure the optimized KNN algorithm performed the best.
+
+```{r Results Table, message=FALSE, warning=FALSE, echo=FALSE}
+# Put out a table of the results just to see where we are
+kable(generalResults) %>% 
+  kable_material(c("striped", "hover", "condensed", "responsive"),
+                 position = "center",
+                 font_size = 12)
+```
+
+# Conclusion
+probably should have used a full year or years, the data set was limited on kaggle so i used all the data but it also seemed to 
+encompass covid, so it may not have been the most representative.
+
+Other factors such as precipitation, more weather stations and cloud cover could be added.
+
+Most likely this information is already known by the agencies that govern power generation, or at least EIA, IRENA, IEA.  Instead of 
+looking at daily swings in temperature it probably is more useful to look at seasonal data since the power systems have large inertia
+and it probably doesn't make sense to look at such granular data.  It would be better for seasonal effects over a number of years to better
+plan for the necessary generation for any reasonable time period.
+It would probably also be useful to look at extreme temperatures as opposed to just the min/max temps.  If you look through the data you can visually see that the days where there were more energy used the temperature was at one of the extremes.
+Given more time there are a bunch of things that I would change from the initial data set to the validation method.  I probably
+should have used a scale based on the MWh error as opposed to the using the absolute error.  I threw in the MAPE because a percentage
+error provides a feel for where things are at where the absolute errors on continuous data are useful but they don't trigger the same
+response when viewing as a percentage even though MAPE has it's faults.
+
+# References
+course book
+noaa
+spanish website

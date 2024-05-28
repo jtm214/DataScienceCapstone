@@ -7,4 +7,4 @@ private repo once the crading has been completed.
 This repo contains the three files necessary for completing the project, a .R file, .Rmd file, and pdf document created using knitr.  The files are located in the MovieRecommender folder.
 
 ## Independent projects
-TBD
+This repo contains the choose your own project for the capstone course.  It contains multiple files, the required files - .R file, .Rmd file, and pdf document, as well as the data sets used in the course (energyData.csv and tempData.csv), the project file and the workspace data used in knitr.  The files are located in the ChooserYourOwn folder.

@@ -34,7 +34,7 @@ With the goal of this project being able to predict the energy use based on the 
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Loading the data
-The data for the project is in two .csv files that are included in the git repository.  The files are imported and converted to English style format for decimals (i.e. period is the decimal marker and not a comma) along with a few other formating changes to aid in the analysis.  The workspace data in this case was saved as chooseYourOwnWorkspace.Rdata for easy importing into the markdown file.  I find it annoying to have to have to re-run the code within the markdown file so it is saved with the git repository as well.  This is just a reminder if anyone would want to run the knitr on the markdown file that you will need include the data .csv files and the workspace variable file .Rdata in the same folder as this .Rmd for it to work properly.  
+The data for the project is in two .csv files that are included in the git repository.  The files are imported and converted to English style format for decimals (i.e. period is the decimal marker and not a comma) along with a few other formatting changes to aid in the analysis.  The workspace data in this case was saved as chooseYourOwnWorkspace.Rdata for easy importing into the markdown file.  I find it annoying to have to have to re-run the code within the markdown file so it is saved with the git repository as well.  This is just a reminder if anyone would want to run the knitr on the markdown file that you will need include the workspace variable file .Rdata in the same folder as this .Rmd for it to work properly.  
 
 ## Initial data exploration
 In an effort to get a better sense of the data and important features some basic statistics were taken and some plots were generated that may help provide some insight into what techniques are best for this data. Here's a snip of the data set used throughout to get a general idea of the data format and important information.
@@ -89,6 +89,7 @@ temperaturevsEnergy
 ```
 
 The final set of plots are correlation plots of the three temperature values, max, min, delta between max/min and the energy use. 
+
 ```{r correlation plots, message=FALSE, warning=FALSE, echo=FALSE}
 grid.arrange(tMaxCor, tMinCor, nrow = 2); 
 grid.arrange(tAveCor, deltaCor, nrow = 2);
@@ -121,12 +122,13 @@ kable(linearResults) %>%
 In effort to try to learn multiple algorihtms or at least get a general feel for how things work, the data was run using the Random Forest, Regularized Random Forest, SVM, L2 Regularized SVM with Linear Kernel, and KNN models.  Once the data was run through each individual model it became clear that the KNN model performed the best on every metric, since the mode was originally run with the default k, it was re-rerun after finding the ideal value which was fairly straight forward using the following code.
 
 ```{r knn code, message=FALSE, warning=FALSE, echo=TRUE, eval=FALSE}
-knnFit <- train(eDaily ~ tMax + tMin, method = "knn", data = trainData, tuneGrid = expand.grid(k=seq(3,101,2)))
+knnFit <- train(eDaily ~ tMax + tMin, method = "knn", data = trainData, 
+                tuneGrid = expand.grid(k=seq(3,101,2)))
 #Going to try to find the value of k that minimizes there error
 minIdx <- which.min(knnFit$results$RMSE)
 minIdx
-#So after finding the minimum i realized that the fit has a bestTune variable that gives it without needed to
-#do any other calculations.  So it goes.
+#So after finding the minimum i realized that the fit has a bestTune variable 
+#that gives it without needed to do any other calculations.  So it goes.
 knnHat <- predict(knnFit, testData, type = "raw")
 ```
 ```{r knn plot, message=FALSE, warning=FALSE, echo=FALSE}

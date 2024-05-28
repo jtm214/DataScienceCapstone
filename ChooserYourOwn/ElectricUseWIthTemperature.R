@@ -83,14 +83,17 @@ results <- function(testData = NULL, predictedData = NULL) {
 # Temperature dataset:
 # www.noaa.org  TODO - FIX ME - PUt exact url
 
-#Import the data from the local files.  The files are in the git repo at the same folder lever
+#Import the data from github.  The files are in the git repo at the same folder level
 #as this .R file.  So please make sure that you've pulled the full repo or that you've
 #got all the files in the proper location before running the script.
 options(timeout = 120)
 
-energyUse <- read.csv2("energyData.csv", header = TRUE, sep = ";", dec = ".")
-tempData <- read.csv("tempData.csv");
 
+#energyUse <- read.csv2("energyData.csv", header = TRUE, sep = ";", dec = ".")
+energyUse <- read.csv2("https://raw.githubusercontent.com/jtm214/DataScienceCapstone/master/ChooserYourOwn/energyData.csv", 
+                        header = TRUE, sep = ";", dec = ".")
+#tempData <- read.csv("tempData.csv");
+tempData <- read.csv("https://raw.githubusercontent.com/jtm214/DataScienceCapstone/master/ChooserYourOwn/tempData.csv")
 #Determine how many unique temperature stations are available in the dataset
 numOfStations <- length(unique(tempData$STATION));
 numOfStations

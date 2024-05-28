@@ -3,7 +3,7 @@ title: "Spain - Electricity Use Related to Temperature"
 author: "Justin McQuown"
 date: "May 2024"
 output: 
-    html_document:
+    pdf_document:
           toc: true
           number_sections: true
 ---
@@ -21,10 +21,11 @@ library(ggplot2)
 library(gridExtra)
 load("chooseYourOwnWorkspace.Rdata")
 ```
+
+
 \newpage
 # Introduction
-For the choose your own project, I chose to try to predict the daily energy use in MWh based on the daily temperature.  The
-energy use data set came from kaggle and can be found here:  <https://www.kaggle.com/datasets/pythonafroz/price-of-electricity-and-the-renewable-energy?resource=download>. While the license info can
+For the choose your own project I chose to try to predict the daily energy use in MWh based on the daily temperature for the country of Spain.  The energy use data set came from kaggle and can be found here: <https://www.kaggle.com/datasets/pythonafroz/price-of-electricity-and-the-renewable-energy?resource=download>. While the license info can
 be found here: <https://creativecommons.org/licenses/by-nc-sa/4.0/>.  The energy data was was taken in Spain for 2 year period starting 
 on November 1, 2020 and ending on October 31, 2022.  The data was collected multiple times an hour giving a fairly decent size dataset of over 100K entries.  Temperature data for this time period wasn't available on kaggle so it was gathered from NOAA.  The NOAA data was not sampled as frequently and was taken from multiple stations across the country.  It initially contained over 260K entries but this was trimmed down several times throughout the analysis.  Since both kaggle and NOAA require accounts to download the data, the data sets are provided in the github repository.  They are named energyData.csv for the energy data from kaggle and tempData.csv for the temperature data from NOAA.
 
@@ -32,49 +33,110 @@ With the goal of this project being able to predict the energy use based on the 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Data Engineering
-The energy contained a lot of information including energy total, reference and free market price, reference and market share, and renewable generation source.  For this application the price, share, and source were not relevant so they were removed after the initial important leaving just the total energy.  The temperature data consisted of the daily high, low, and average temperatures along with the station it was collected, the coordinates of the station and the elevation of the station.  In an effort to simplify the number of data points I filtered out all the stations except the ones near Madrid since it was a fairly centralized location within the country.  There were a number of stations located in and around Madrid and the daily temperature data was averaged for these locations.  Since the energy data was sampled every 4 hours and the temperature data was collected once a day, the energy data was summed to give a single measurement for the day.
-## Data Exploration
+## Loading the data
+The data for the project is in two .csv files that are included in the git repository.  The files are imported and converted to English style format for decimals (i.e. period is the decimal marker and not a comma) along with a few other formating changes to aid in the analysis.  The workspace data in this case was saved as chooseYourOwnWorkspace.Rdata for easy importing into the markdown file.  I find it annoying to have to have to re-run the code within the markdown file so it is saved with the git repository as well.  This is just a reminder if anyone would want to run the knitr on the markdown file that you will need include the data .csv files and the workspace variable file .Rdata in the same folder as this .Rmd for it to work properly.  
+
+## Initial data exploration
 In an effort to get a better sense of the data and important features some basic statistics were taken and some plots were generated that may help provide some insight into what techniques are best for this data. Here's a snip of the data set used throughout to get a general idea of the data format and important information.
 
 ```{r Initial data exploration to help guide the analysis, message=FALSE, warning=FALSE, echo=FALSE}
 #Here's a glimpse of the data set
 trainData %>% as_tibble()
 ```
-Next some basic statistics of the data were calculated:
+
+As you'll see, the relevant data columns from the two input files has been cleaned and joined to simplify the data engineering that will take place next.  The important columns for this project are the eDaily column which is the daily energy use, tMax which is the daily max temperature, tMin which is the daily minimum temperature, the other columns were used in initial analysis but were deemed not important after testing various models.  They are left in the data frame largely because it really seemed like they would matter at some point but it turned out not to be the case.  The eDaily column is in units of MWh while the temperatures are in Fahrenheit even though the data was from Spain, it was easier for me personally to visualize the data in this manner.
+
+# Data Engineering
+The energy data contained a lot of information including energy total, reference and free market price, reference and market share, and renewable generation source.  For this application the price, share, and source were not relevant so they were removed after the initial import leaving just the total energy.  The temperature data consisted of the daily high, low, and average temperatures along with the station it was collected, the coordinates of the station and the elevation of the station.  In an effort to simplify the number of data points I filtered out all the stations except the ones near Madrid since it was a fairly centralized location within the country.  There were a number of stations located in and around Madrid and the daily temperature data was averaged for these locations.  Since the energy data was sampled every 4 hours and the temperature data was collected once a day, the energy data was summed to give a single measurement for the day.
+
+## Data Exploration
+The data exploration started with looking at the basic statistics of the dataset.  They are displayed in the table below:
 ```{r basic stats, message=FALSE, warning=FALSE, echo=FALSE}
-kable(tab) %>%
+rownames(tab) <- c("Max Temp", "Min Temp", "Energy Use MWH")
+colnames(tab) <- c("N", "Ave", "Median", "STDev", "High", "Low")
+kable(tab, digits = 2) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                 position = "center",
-                font_size = 12,
-                full_width = TRUE)
+                font_size = 12)
+```
+The table in and of itself doesn't provide a whole lot of useful information but you can see that the temperatures are within a reasonable range at least gives a little confidence that the data is realistic.  Next, a few plots of the data will be displayed.  The first set of plots are the daily Min/Max temperatures and the energy use in MWh vs. the date.  You'll notice that this a two year plot so there is definitely a periodic nature of the temperature, which is expected.  The daily energy use has some periodic trends but it is less obvious from this plot.
+```{r daily min and max plot, message=FALSE, warning=FALSE, echo=FALSE}
+grid.arrange(temperatureDataPlot, energyDataPlot, nrow = 2);
 ```
 
-```{r plots of the data, message=FALSE, warning=FALSE}
-grid.arrange(temperatureDataPlot, energyDataPlot, nrow = 2);
+The next set of plots are the smoothed version of the previous plots using the loess method and a span of .3, you'll notice that the temperatures for 2022 seemed to generally warmer than 2021 but that also that lower temperatures seem to show an increase in energy use.
+
+```{r daily min max smoothed plot, message=FALSE, warning=FALSE, echo=FALSE}
 grid.arrange(temperatureDataPlotSmooth, energyDataPlotSmooth, nrow = 2);
+```
+
+The following plot is the same as the previous except with the temperature and energy use put on the same x-axis just for completeness sake.  There isn't a whole lot of new information here but it is just a different way of displaying the previous data.  It does show the periodicity a bit better and there seems to be a correlation between the extreme temperatures and energy use with the extreme lows having a larger effect than the extreme highs.
+
+```{r daily temperature energy plot same scale, message=FALSE, warning=FALSE, echo=FALSE}
 temperatureEnergyPlotSmooth
-temperaturevsEnergy
-temperaturevsEnergyOrdered
-grid.arrange(tMaxCor, tMinCor, nrow = 2); 
-grid.arrange(tAveCor, deltaCor, nrow = 2);
+```
+
+Just out of curiousity the histogram of the data was plotted to see if there's anything that can be of use.
+
+```{r data histogram, message=FALSE, warning=FALSE, echo=FALSE}
 grid.arrange(tMaxHist, tMinHist, eAVEHist)
 ```
 
-# Analysis
-All of the algorithms tested were executed with the caret train function and executed using the daily energy use as the outcome and the daily temperature max/min as the predictors.  The models were run with other predictors such as the daily average temperature, the delta between the max and min temperatures, and the max/min temperatures individually but all of these versions of the model performed worse than the combined version.  
-## Analysis Precursor
-The metric for determine which algorithm performed best was the RMSE but as you'll see later in the report other metrics were used as a comparison, partly of out of my partly out of my personal interest but also because the data was continuous with a large variation and the errors in and of themselves didn't seem all the enlightening at first glance.
-## Initial Model
-The initial model was a simple linear
-## Final Model
+If you squint you can see a normal distribution of data on the temperature min and energy use with a bi-modal distribution of the temperature max.  From the plots of the histogram I don't really see much useful information.  The next plot is the temperature max/min vs. the daily energy use where the correlation between the extreme temperatures and the energy use use is becoming more apparent.  
 
-```{r knn plots, message=FALSE, warning=FALSE, echo=FALSE}
-plot(knnFit$results$RMSE)
+```{r daily temperature vs energy plot, message=FALSE, warning=FALSE, echo=FALSE}
+temperaturevsEnergy
 ```
 
+The final set of plots are correlation plots of the three temperature values, max, min, delta between max/min and the energy use. 
+```{r correlation plots, message=FALSE, warning=FALSE, echo=FALSE}
+grid.arrange(tMaxCor, tMinCor, nrow = 2); 
+grid.arrange(tAveCor, deltaCor, nrow = 2);
+```
+
+The correlation plots seem to show a slightly negative correlation.  It is actually lower than I was expecting based on the plots.  The delta temperature (tMax - tMin) showed almost no correlation and the average daily temperature resulted in the same correlation as the minimum value so I'm not going to bother using these in any future analysis. Spending some more time with the data and maybe adding additional predictors could probably increase the correlation within these visualizations.
+
+# Analysis
+All of the algorithms tested were executed with the caret train function and executed using the daily energy use as the outcome and the daily temperature max/min as the predictors.  The models were run with other predictors such as the daily average temperature, the delta between the max and min temperatures, and the max/min temperatures individually but all of these versions of the model performed worse than the combined version so the data is not discussed here.
+
+## Analysis Precursor
+The metric for determine which algorithm performed best was the RMSE but as you'll see later in the report other metrics were used as a comparison, partly of out of my personal interest but also because the data was continuous with a large variation and bias.  During the analysis this made it difficult to quickly glance at the error value for an indication of how the algorithm was performing so a percent error measurement was added.
+
+## Initial Models
+The initial models wer a simple linear model and a generalized linear model providing the baseline measurements.  The initial models were taken using the lm and glm methods just to see if there was a significant difference.  In this case there clearly wasn't as the results were exactly the same. Here's the results for the linearized and generalized linear model.
+
+```{r table of linear model results, message=FALSE, warning=FALSE, echo=FALSE}
+linearResults <- as.data.frame(rbind(lmResults, glmResults))
+
+colnames(linearResults) <- c("Bias","RMSE","MSE","MAE","MAPE")
+rownames(linearResults) <- c("Linear Model", "Generalized Linear Model")
+# Put out a table of the results just to see where we are
+kable(linearResults) %>% 
+  kable_material(c("striped", "hover", "condensed", "responsive"),
+                 position = "center",
+                 font_size = 12)
+```
+
+## Final Models
+In effort to try to learn multiple algorihtms or at least get a general feel for how things work, the data was run using the Random Forest, Regularized Random Forest, SVM, L2 Regularized SVM with Linear Kernel, and KNN models.  Once the data was run through each individual model it became clear that the KNN model performed the best on every metric, since the mode was originally run with the default k, it was re-rerun after finding the ideal value which was fairly straight forward using the following code.
+
+```{r knn code, message=FALSE, warning=FALSE, echo=TRUE, eval=FALSE}
+knnFit <- train(eDaily ~ tMax + tMin, method = "knn", data = trainData, tuneGrid = expand.grid(k=seq(3,101,2)))
+#Going to try to find the value of k that minimizes there error
+minIdx <- which.min(knnFit$results$RMSE)
+minIdx
+#So after finding the minimum i realized that the fit has a bestTune variable that gives it without needed to
+#do any other calculations.  So it goes.
+knnHat <- predict(knnFit, testData, type = "raw")
+```
+```{r knn plot, message=FALSE, warning=FALSE, echo=FALSE}
+neighborPlot
+```
+
+You'll notice that the caret train function automatically found the minimum k value within the sequence provided and the predict function will use the optimal value without any real input from the user.  The index of the k that was found to have the minimum RMSE was `r minIdx` and the value of the RMSE at this k value was `r knnFit$results$RMSE[minIdx]`.
+
 # Results
-The Analysis wasn't as in depth as originally intended due to the limitations I put on the data early on in the process so to provide some reasonable insight into the project I tried multiple models and reviewed multiple metrics for determining the accuracy of the algorithms.  You'll notice that the following results table include the calculated Bias, RMSE, MSE, MAE, and MAPE.  MAPE was largely included so that a simple percent error was included.  The simple percent error was much easier to quickly look at the measurements at determine which one performed the best though I realize that MAPE has it's drawbacks.  Though by every measure the optimized KNN algorithm performed the best.
+The Analysis wasn't as in depth as originally intended due to the limitations I put on the data early on in the process so to provide some reasonable insight into the project I tried multiple models and reviewed multiple metrics for determining the accuracy of the algorithms.  You'll notice that the following results table include the calculated Bias, RMSE, MSE, MAE, and MAPE.  MAPE was largely included so that a simple percent error was included.  The simple percent error was much easier to quickly look at the measurements to determine which one performed the best though I realize that MAPE has it's drawbacks.  Though by every measure the optimized KNN algorithm performed the best.
 
 ```{r Results Table, message=FALSE, warning=FALSE, echo=FALSE}
 # Put out a table of the results just to see where we are
@@ -84,23 +146,34 @@ kable(generalResults) %>%
                  font_size = 12)
 ```
 
+Here's a plot of the predicted (KNN) vs. actual daily energy use for reference.
+
+```{r Results plot, message=FALSE, warning=FALSE, echo=FALSE}
+errorPlot
+```
+
+You'll notice that the predictions were in the ballpark but had a much narrower range, `r max(knnHat)-min(knnHat)` MWh vs the actual test data range of `r max(testData$eDaily)-min(testData$eDaily)` which means there are definitely tuning improvements that could be made to the model.  The plot makes me feel like I'm on the right track but the data is probably underfitted and there's additional optimizations that can be made to improve the models.  
+
+The bias that is being calculated is the historical average error, so on average the predictions overshot the target which for the actual application may be the better outcome.  With high bias values I do feel that things should be re-evaluated from the beginning but time is short and I must move on.  The RMSE values are the standard root mean square error which is probably the best measure to identify the predictions while the mean square error is essentially the RMSE just without the square root at the end.  It didn't really provide much insight here, the mean absolute error was similar to the MSE but since the values weren't squared the negative numbers could counter the positive values bring the total value down a bit.  Finally, there was the MAPE which is the mean aboslute percent error which takes into account the mean absolute error but also the value of the outcome for each point in the test data.  The formulate for MAPE is:
+$MAPE = \frac{1}{n}\sum\frac{|e_t|}{d_{t}}$.
+
+For the error function, maybe I should have used a range of energy use such as +/- 1000 MWh to trim the the error signal to a binary output and used it as a categorical measure but that seemed to be missing the point.  Also, since this is energy use and energy predictions that are too large are a problem but too low is catastrophic maybe I should have represented the problem and error conditions with this in mind.
+
 # Conclusion
-probably should have used a full year or years, the data set was limited on kaggle so i used all the data but it also seemed to 
-encompass covid, so it may not have been the most representative.
+The goal of the project was to show what was learned throughout the Harvardx data science course by creating your own project using the techniques discussed throughout the nine courses.  With this in mind I believe this project touched every part of the course from the data visualization, modeling, data wrangling, regression, and machine learning.  The chosen project was an attempt to try to predict the daily energy use using the daily maximum and minimum temperature for a country, in this case Spain.  Several models were run with the best version being an optimized KNN model with the ending prediction resulting in an error of `r round(knnResults[5],digits=2)`% using the MAPE metric.  The results show that you can get in the ballpark with just the temperature information but the extremes of temperature seem to have a better effect than the actual value and it is a complicated problem so more than just a couple of parameters should be used in a real-world application.
 
-Other factors such as precipitation, more weather stations and cloud cover could be added.
+There were several faults in this analysis starting with the fact that the data set probably should have used several full years as opposed to just two, the data set was limited on Kaggle so I used all the available data but it also encompass the Covid-19 epidemic, so it may not have been the most representative data set.  Other factors such as adding additional weather stations that span the country and predictors such as precipitation, cloud cover could be added, elevation, and humidity could be added to reduce the error.  Several predictors were used based on temperature but they probably don't have the full range of information needed to make a more accurate prediction.
 
-Most likely this information is already known by the agencies that govern power generation, or at least EIA, IRENA, IEA.  Instead of 
-looking at daily swings in temperature it probably is more useful to look at seasonal data since the power systems have large inertia
-and it probably doesn't make sense to look at such granular data.  It would be better for seasonal effects over a number of years to better
-plan for the necessary generation for any reasonable time period.
-It would probably also be useful to look at extreme temperatures as opposed to just the min/max temps.  If you look through the data you can visually see that the days where there were more energy used the temperature was at one of the extremes.
+Predicting the energy use most likely is already done by the agencies that govern power generation or at least it should be monitored by agencies such as EIA, IRENA, or IEA.  Instead of using daily swings in temperature the agencies probably look at seasonal data since the power systems have large inertia and it probably doesn't make sense to look at such granular data.  It would be better for seasonal effects over a number of years to better plan for the necessary generation for any reasonable time period.  It would probably also be useful to look at extreme temperatures as opposed to just the min/max temps.  If you look through the data you can visually see that the days where there were more energy used the temperature was at one of the extremes.
+
 Given more time there are a bunch of things that I would change from the initial data set to the validation method.  I probably
 should have used a scale based on the MWh error as opposed to the using the absolute error.  I threw in the MAPE because a percentage
 error provides a feel for where things are at where the absolute errors on continuous data are useful but they don't trigger the same
 response when viewing as a percentage even though MAPE has it's faults.
 
 # References
-course book
-noaa
-spanish website
+Irizarry, Rafael A., "Introduction to Data Science: Data Analysis and Prediction Algorithms in R" <https://rafalab.dfci.harvard.edu/dsbook/>
+
+"Price of electricity and the renewable energy", Afroz, kaggle. 2024. <https://www.kaggle.com/datasets/pythonafroz/price-of-electricity-and-the-renewable-energy?resource=download>
+
+"Climate Data Online: Dataset Discovery", National Oceanic and Atmospheric Administration, 2024. <https://www.ncdc.noaa.gov/cdo-web/datasets>

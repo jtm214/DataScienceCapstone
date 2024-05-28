@@ -117,7 +117,7 @@ dailyMeanTemps <- madridData %>% group_by(DATE) %>%
 #The energy data is tracked in 4 hour intervals so I'm just going to average it for the day since I don't 
 #have quite that resolution in the temperature data.
 dailyEnergyAverage <- energyUse %>% group_by(date) %>%
-                      summarize(eAVE=sum(as.numeric(gsub(",",".",gsub("\\.","",energy.total..MWh.)))))
+                      summarize(eDaily=sum(as.numeric(gsub(",",".",gsub("\\.","",energy.total..MWh.)))))
 
 #There's a few NA's in the data so I'm just going to replace the value with the previous day's readings since the
 #average temperature should be relatively consistent from day to day
@@ -144,15 +144,15 @@ datum <- merge(dailyMeanTemps, dailyEnergyAverage, by = "date")
 # Final hold-out test set will be 10% of data set
 set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
 # set.seed(1) # if using R 3.5 or earlier
-test_index <- createDataPartition(y = datum$eAVE, times = 1, p = 0.1, list = FALSE)
+test_index <- createDataPartition(y = datum$eDaily, times = 1, p = 0.1, list = FALSE)
 trainData <- datum[-test_index,]
 testData <- datum[test_index,]
 
-# Make sure tMax, tMin, and eAVE are also in final hold-out test set are also in edx set
+# Make sure tMax, tMin, and eDaily are also in final hold-out test set are also in edx set
 final_holdout_test <- testData %>% 
   semi_join(datum, by = "tMax") %>%
   semi_join(datum, by = "tMin") %>% 
-  semi_join(datum, by = "eAVE")
+  semi_join(datum, by = "eDaily")
 
 # Add rows removed from final hold-out test set back into edx set
 removed <- anti_join(testData, final_holdout_test)
@@ -169,10 +169,10 @@ tMaxStats <- trainData %>% summarize(measurements=n(), avg=mean(tMax), med=media
                         stdev=sd(tMax), high=max(tMax), low=min(tMax))
 tMinStats <- trainData %>% summarize(measurements=n(), avg=mean(tMin), med=median(tMin),
                                           stdev=sd(tMin), high=max(tMin), low=min(tMin))
-eAveStats <- trainData %>% summarize(measurements=n(), avg=mean(eAVE), med=median(eAVE),
-                                          stdev=sd(eAVE), high=max(eAVE), low=min(eAVE))
+eDailyStats <- trainData %>% summarize(measurements=n(), avg=mean(eDaily), med=median(eDaily),
+                                          stdev=sd(eDaily), high=max(eDaily), low=min(eDaily))
 
-tab <- rbind(tMaxStats, tMinStats, eAveStats);
+tab <- rbind(tMaxStats, tMinStats, eDailyStats);
 rownames(tab) <- c("Max Temp", "Min Temp", "Energy Use MWH")
 kable(tab) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
@@ -193,7 +193,7 @@ temperatureDataPlot <-  trainData %>% gather(key,value, tMax, tMin) %>%
                     theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 
 energyDataPlot <-  trainData %>% 
-                    ggplot(aes(x=date,y=eAVE,  group=1)) + 
+                    ggplot(aes(x=date,y=eDaily,  group=1)) + 
                     geom_line(linewidth=1) +
                     scale_x_discrete(labels=trainData$date[seq(1, dim(trainData)[1], by=30)],breaks=trainData$date[seq(1,dim(trainData)[1],by=30)]) +
                     labs(title = "Daily Energy Usage",
@@ -209,8 +209,8 @@ grid.arrange(temperatureDataPlot, energyDataPlot, nrow = 2);
 #Next we're going to plot the smoothed data to see if there's anything interesting there
 temperatureDataPlotSmooth <-  trainData %>% 
                               ggplot(aes(x=date,group=1)) + 
-                              geom_smooth(aes(y=tMax, color = "tMax"), n=20) +
-                              geom_smooth(aes(y=tMin, color = "tMin"), n=20) +
+                              geom_smooth(aes(y=tMax, color = "tMax"), method="loess", span=.3) +
+                              geom_smooth(aes(y=tMin, color = "tMin"), method="loess", span=.3) +
                               scale_x_discrete(labels=trainData$date[seq(1, dim(trainData)[1], by=30)],breaks=trainData$date[seq(1,dim(trainData)[1],by=30)]) +
                               labs(title = "Daily Min/Max Temperatures",
                                    x = "Date",
@@ -219,8 +219,8 @@ temperatureDataPlotSmooth <-  trainData %>%
                               theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 
 energyDataPlotSmooth <-       trainData %>% 
-                              ggplot(aes(x=date,y=eAVE,  group=1)) + 
-                              geom_smooth() + 
+                              ggplot(aes(x=date, group=1)) + 
+                              geom_smooth(aes(y=eDaily, method="loess", span=.3)) + 
                               scale_x_discrete(labels=trainData$date[seq(1, dim(trainData)[1], by=30)],breaks=trainData$date[seq(1,dim(trainData)[1],by=30)]) +
                               labs(title = "Daily Energy Usage",
                                    x = "Date",
@@ -230,16 +230,18 @@ energyDataPlotSmooth <-       trainData %>%
 
 grid.arrange(temperatureDataPlotSmooth, energyDataPlotSmooth, nrow = 2);
 
+#The next plot is a combination of the one above to see the data energy and temperature data on the
+#same time scale.
 temperatureEnergyPlotSmooth <-  trainData %>% 
   ggplot(aes(x=date,group=1)) + 
-  geom_smooth(aes(y=tMax, color = "tMax"), n=20) +
-  geom_smooth(aes(y=tMin, color = "tMin"), n=20) +
-  geom_smooth(aes(y=eAVE/300, color = "eAVE"), n=20) +
+  geom_smooth(aes(y=tMax, color = "tMax"), method="loess", span=.3) +
+  geom_smooth(aes(y=tMin, color = "tMin"), method="loess", span=.3) +
+  geom_smooth(aes(y=eDaily/50000, color = "eDaily"), method="loess", span=.3) +
   scale_y_continuous(
     name = "Temperature (F)",
-    sec.axis = sec_axis(~.*300, name="MWH")
+    sec.axis = sec_axis(~.*50000, name="MWH")
   ) +
-  labs(title = "Daily Min/Max Temperatures",
+  labs(title = "Daily Temperatures and Energy Use",
        x = "Date",
        y = "Temperature (F)/Energy Use"
   ) +
@@ -247,10 +249,11 @@ temperatureEnergyPlotSmooth <-  trainData %>%
   theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 temperatureEnergyPlotSmooth
 
+#This plot is the temperature vs. energy.  The data is smoothed to get rid of the high frequency variations.
 temperaturevsEnergy <-  trainData %>% 
-  ggplot(aes(x=eAVE,group=1)) + 
-  geom_smooth(aes(y=tMax, color = "tMax"), n=20) +
-  geom_smooth(aes(y=tMin, color = "tMin"), n=20) +
+  ggplot(aes(x=eDaily,group=1)) + 
+  geom_smooth(aes(y=tMax, color = "tMax"), method="loess", span=.3) +
+  geom_smooth(aes(y=tMin, color = "tMin"), method="loess", span=.3) +
   labs(title = "Daily Min/Max Temperatures vs. Energy",
        x = "Energy Use (MWh)",
        y = "Temperature (F)"
@@ -260,12 +263,12 @@ temperaturevsEnergy
 
 #Now we're going to order the data by energy use and the plot the smoothed max/min
 #temperatures
-orderedTrainData <- trainData %>% arrange(desc(eAVE));
+orderedTrainData <- trainData %>% arrange(desc(eDaily));
 
 temperaturevsEnergyOrdered <-  orderedTrainData %>% 
-  ggplot(aes(x=eAVE, group = 1)) + 
-  geom_smooth(aes(y=tMax, color = "tMax"), n=20) +
-  geom_smooth(aes(y=tMin, color = "tMin"), n=20) + 
+  ggplot(aes(x=eDaily, group = 1)) + 
+  geom_smooth(aes(y=tMax, color = "tMax"), method="loess", span=.3) +
+  geom_smooth(aes(y=tMin, color = "tMin"), method="loess", span=.3) + 
   labs(title = "Daily Min/Max Temperatures vs. Energy",
        x = "Energy Use (MWh)",
        y = "Temperature (F)"
@@ -274,26 +277,26 @@ temperaturevsEnergyOrdered <-  orderedTrainData %>%
 temperaturevsEnergyOrdered
 
 #Plot the correlation between the variables just to see if there's anything interesting
-r <- round(cor(trainData$tMax, trainData$eAVE), 2)
-p <- cor.test(trainData$tMax, trainData$eAVE)$p.value
-tMaxCor <- ggplot(trainData, aes(y=tMax,x=eAVE)) + 
+r1 <- round(cor(trainData$tMax, trainData$eDaily), 2)
+p1 <- cor.test(trainData$tMax, trainData$eDaily)$p.value
+tMaxCor <- ggplot(trainData, aes(y=tMax,x=eDaily)) + 
     geom_point() + 
     geom_smooth(method="lm", col="black") +
-    annotate("text",x=32500, y=90, label=paste0("r = ", r), hjust=0) +
-    annotate("text",x=32500, y=85, label=paste0("p = ", round(p,3)), hjust=0) + 
+    annotate("text",x=4750000, y=90, label=paste0("r = ", r1), hjust=0) +
+    annotate("text",x=4750000, y=84, label=paste0("p = ", round(p1,3)), hjust=0) + 
     labs(title = "Correlation (Daily Max Temp, Daily Energy Use)",
          x = "Energy Use (MWh)",
          y = "Daily High Temp (F)"
     ) +  
     theme_classic()
 
-r <- round(cor(trainData$tMin, trainData$eAVE), 2)
-p <- cor.test(trainData$tMin, trainData$eAVE)$p.value
-tMinCor <- ggplot(trainData, aes(y=tMin,x=eAVE)) + 
+r2 <- round(cor(trainData$tMin, trainData$eDaily), 2)
+p2 <- cor.test(trainData$tMin, trainData$eDaily)$p.value
+tMinCor <- ggplot(trainData, aes(y=tMin,x=eDaily)) + 
     geom_point() + 
     geom_smooth(method="lm", col="black") +
-    annotate("text", x=32500, y=67, label=paste0("r = ", r), hjust=0) +
-    annotate("text", x=32500, y=62, label=paste0("p = ", round(p,3)), hjust=0) + 
+    annotate("text", x=4750000, y=67, label=paste0("r = ", r2), hjust=0) +
+    annotate("text", x=4750000, y=62, label=paste0("p = ", round(p2,3)), hjust=0) + 
     labs(title = "Correlation (Daily Min Temp, Daily Energy Use)",
          x = "Energy Use (MWh)",
          y = "Daily Low Temp (F)"
@@ -303,28 +306,28 @@ tMinCor <- ggplot(trainData, aes(y=tMin,x=eAVE)) +
 #So the actual correletion was not that interesting and actually gave a negative value which i wasn't expecting
 #so i'm going to try the delta between the max and min  and see if that has any different values
 delta <- trainData$tMax - trainData$tMin;
-r <- round(cor(delta, trainData$eAVE),2)
-p <- cor.test(delta, trainData$eAVE)$p.value
-deltaCor <- ggplot(trainData, aes(y=delta, x=eAVE)) +
+r3 <- round(cor(delta, trainData$eDaily),2)
+p3 <- cor.test(delta, trainData$eDaily)$p.value
+deltaCor <- ggplot(trainData, aes(y=delta, x=eDaily)) +
     geom_point() + 
     geom_smooth(method="lm", col="black") +
-    annotate("text", x=32500, y=42, label=paste0("r = ", r), hjust=0) +
-    annotate("text", x=32500, y=37, label=paste0("p = ", round(p,3)), hjust=0) +
-    labs(title = "Correlation (Daily Max-Min Temp, Daily Energy Use)",
+    annotate("text", x=4750000, y=42, label=paste0("r = ", r3), hjust=0) +
+    annotate("text", x=4750000, y=39, label=paste0("p = ", round(p3,3)), hjust=0) +
+    labs(title = "Correlation (Daily Delta Temp, Daily Energy Use)",
          x = "Energy Use (MWh)",
          y = "Daily Max-Min Temp (F)"
     ) +  
     theme_classic()
 
 trainData$tAVE <- mean(trainData$tMax-trainData$tMin) + trainData$tMin;
-r <- round(cor(trainData$tAVE, trainData$eAVE),2)
-p <- cor.test(trainData$tAVE, trainData$eAVE)$p.value
-tAveCor <- ggplot(trainData, aes(y=tAVE, x=eAVE)) +
+r4 <- round(cor(trainData$tAVE, trainData$eDaily),2)
+p4 <- cor.test(trainData$tAVE, trainData$eDaily)$p.value
+tAveCor <- ggplot(trainData, aes(y=tAVE, x=eDaily)) +
   geom_point() + 
   geom_smooth(method="lm", col="black") +
-  annotate("text", x=32500, y=80, label=paste0("r = ", r), hjust=0) +
-  annotate("text", x=32500, y=75, label=paste0("p = ", round(p,3)), hjust=0) +
-  labs(title = "Correlation (Daily Max-Min Temp, Daily Energy Use)",
+  annotate("text", x=4750000, y=80, label=paste0("r = ", r4), hjust=0) +
+  annotate("text", x=4750000, y=75, label=paste0("p = ", round(p4,3)), hjust=0) +
+  labs(title = "Correlation (Daily Ave Temp, Daily Energy Use)",
        x = "Energy Use (MWh)",
        y = "Daily Max-Min Temp (F)"
   ) +  
@@ -357,9 +360,9 @@ tMinHist <- trainData %>%
   )+
   theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 
-eAVEHist <- trainData %>%
+eDailyHist <- trainData %>%
   group_by(date) %>%
-  ggplot(aes(eAVE)) +
+  ggplot(aes(eDaily)) +
   geom_histogram(bins=20, fill = "blue") +
   labs(title = "Energy Usage Distribution",
        x = "MWh",
@@ -367,56 +370,60 @@ eAVEHist <- trainData %>%
   )+
   theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
 
-grid.arrange(tMaxHist, tMinHist, eAVEHist)
+grid.arrange(tMaxHist, tMinHist, eDailyHist)
 
 # --------------- Analysis section ----------------------------------------
 # Since I bounded the analysis early on to a couple of variables I'm going to try several
 # different algorithms to see if there's much of a difference here.
 
+#Simple linear model
+lmFit <- lm(eDaily ~ tMax + tMin, data = trainData)
+lmHat <- predict(lmFit, testData)
+lmResults <- results(lmHat, testData$eDaily)
+lmResults
+
+#generalized linear model
+glmFit <- train(eDaily ~ tMax + tMin, method = "glm", data = trainData);
+glmHat <- predict(glmFit, testData)
+
+#Random forest
+rfFit <- train(eDaily ~ tMax + tMin, method = "rf", data = trainData);
+rfHat <- predict(rfFit, testData)
+
+#Regularized Random forest
+rrfFit <- train(eDaily ~ tMax + tMin, method = "RRF", data = trainData);
+rrfHat <- predict(rrfFit, testData)
+
+#SVM with linear kernel
+svmFit <- train(eDaily ~ tMax + tMin, method = "svmLinear", data = trainData);
+svmHat <- predict(svmFit, testData)
+
+#Least squares Support Vector Machine
+svm3Fit <- train(eDaily ~ tMax + tMin, method = "svmLinear3", data = trainData);
+svm3Hat <- predict(svm3Fit, testData)
+
 #KNN
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+knnFit <- train(eDaily ~ tMax + tMin, method = "knn", data = trainData, tuneGrid = expand.grid(k=seq(3,101,2)))
 #Going to try to find the value of k that minimizes there error
-knnFit <- train(eAVE ~ tMax + tMin, method = "knn", data = trainData, tuneGrid = expand.grid(k=seq(3,101,2)))
 minIdx <- which.min(knnFit$results$RMSE)
 #So after finding the minimum i realized that the fit has a bestTune variable that gives it without needed to
 #do any other calculations.  So it goes.
 knnHat <- predict(knnFit, testData, type = "raw")
-
-#Simple linear model
-lmFit <- lm(eAVE ~ tMax + tMin, data = trainData)
-lmHat <- predict(lmFit, testData)
-
-#generalized linear model
-glmFit <- train(eAVE ~ tMax + tMin, method = "glm", data = trainData);
-glmHat <- predict(glmFit, testData)
-
-#Random forest
-rfFit <- train(eAVE ~ tMax + tMin, method = "rf", data = trainData);
-rfHat <- predict(rfFit, testData)
-
-#Regularized Random forest
-rrfFit <- train(eAVE ~ tMax + tMin, method = "RRF", data = trainData);
-rrfHat <- predict(rrfFit, testData)
-
-#SVM with linear kernel
-svmFit <- train(eAVE ~ tMax + tMin, method = "svmLinear", data = trainData);
-svmHat <- predict(svmFit, testData)
-
-#Least squares Support Vector Machine
-svm3Fit <- train(eAVE ~ tMax + tMin, method = "svmLinear3", data = trainData);
-svm3Hat <- predict(svm3Fit, testData)
-
+neighborPlot <- ggplot(knnFit, highlight=TRUE)
+neighborPlot
 # Results section ---------------------------------------------------------
 # Here's the results of the above algorithms but just from looking at the data
 # it appears the limitation is not the algorithm but the limited data set I started
 # with.
 #Summarize the results
-lmResults <- results(lmHat, testData$eAVE)
-glmResults <- results(glmHat, testData$eAVE)
-knnResults <- results(knnHat, testData$eAVE)
-rfResults <- results(rfHat, testData$eAVE)
-rrfResults <- results(rrfHat, testData$eAVE)
-svmResults <- results(svmHat, testData$eAVE)
-svm3Results <- results(svm3Hat, testData$eAVE)
+lmResults <- results(lmHat, testData$eDaily)
+glmResults <- results(glmHat, testData$eDaily)
+knnResults <- results(knnHat, testData$eDaily)
+rfResults <- results(rfHat, testData$eDaily)
+rrfResults <- results(rrfHat, testData$eDaily)
+svmResults <- results(svmHat, testData$eDaily)
+svm3Results <- results(svm3Hat, testData$eDaily)
 
 generalResults <- as.data.frame(rbind(lmResults, glmResults, knnResults, rfResults, rrfResults, svmResults, svm3Results))
 
@@ -429,6 +436,22 @@ kable(generalResults) %>%
   kable_material(c("striped", "hover", "condensed", "responsive"),
                  position = "center",
                  font_size = 12)
+
+
+#Create a table of the predicted and actual values
+data <- data.frame(actual= testData$eDaily, predicted=knnHat)
+
+#Plot the predicted vs actual values for a sanity check of the data
+errorPlot <- data %>%
+  ggplot(aes(x=actual,y=predicted)) +
+  geom_point() +
+  geom_abline() +
+  labs(title = "Predicted vs. Actual Energy Use (MWh)",
+       x = "Actual Values",
+       y = "Predicted Values"
+  )+
+  theme(axis.text.x = element_text(angle=90, hjust=1), plot.title = element_text(hjust = 0.5))
+errorPlot
 
 
 

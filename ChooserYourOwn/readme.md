@@ -11,5 +11,5 @@ The data sets are included here because both sites require login and it was just
 
 ## Notes
 - The .RData file was saved because this is used in the markdown file so that I didn't have to run a whole bunch of code there and it made knitr run very quickly.  If you plan on running the markdown file you must include this in the same directory.
-- The project file was include just for my purposes but should be needed to run the application.
+- The project file was included just for my purposes but should not be needed to run the application.
 - The data .csv files are located in the github repo so please make sure you have a network connection before running the .R script or things will fail.

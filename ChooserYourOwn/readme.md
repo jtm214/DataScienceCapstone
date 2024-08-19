@@ -1,7 +1,7 @@
 # Project information
 This folder contains the choose your own project files for the Harvardx data science capstone course.  
 
-The data sets for Spain and are collected for the time period of 2020 to 2022 and are included in the .csv files and were obtained from:
+The data sets used for the analysis are temperature and energy for Spain and are collected for the time period of 2020 to 2022. They are included in the repo as .csv files and were obtained from:
 https://www.kaggle.com/datasets/pythonafroz/price-of-electricity-and-the-renewable-energy?resource=download
 https://www.ncdc.noaa.gov/cdo-web/datasets
 
